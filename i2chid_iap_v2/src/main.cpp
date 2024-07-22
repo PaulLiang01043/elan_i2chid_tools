@@ -26,12 +26,12 @@
 
 // SW Version
 #ifndef ELAN_TOOL_SW_VERSION
-#define	ELAN_TOOL_SW_VERSION 	"4.1"
+#define	ELAN_TOOL_SW_VERSION 	"4.2"
 #endif //ELAN_TOOL_SW_VERSION
 
 // SW Release Date
 #ifndef ELAN_TOOL_SW_RELEASE_DATE
-#define ELAN_TOOL_SW_RELEASE_DATE	"2022-10-24"
+#define ELAN_TOOL_SW_RELEASE_DATE	"2024-07-22"
 #endif //ELAN_TOOL_SW_RELEASE_DATE
 
 #ifdef __SUPPORT_RESULT_LOG__
@@ -931,18 +931,6 @@ int main(int argc, char **argv)
             goto EXIT2;
         }
 
-        // Verify FW Update with FW Information
-        DEBUG_PRINTF("Get FW Info.\r\n");
-        if(gen8_touch) // Gen8 Touch
-            err = gen8_get_firmware_information(FULL_MESSAGE); // Disable Silent Mode
-        else // Gen5/6/7 Touch
-            err = get_firmware_information(FULL_MESSAGE); // Disable Silent Mode
-        if(err != TP_SUCCESS)
-        {
-            ERROR_PRINTF("Fail to Get FW Info!\r\n");
-            goto EXIT2;
-        }
-
         // Re-calibrate Touch
         DEBUG_PRINTF("Calibrate Touch...\r\n");
         if(gen8_touch)
@@ -961,6 +949,18 @@ int main(int argc, char **argv)
                 ERROR_PRINTF("Fail to Calibrate Touch!\r\n");
                 goto EXIT2;
             }
+        }
+
+        // Verify FW Update with FW Information
+        DEBUG_PRINTF("Get FW Info.\r\n");
+        if(gen8_touch) // Gen8 Touch
+            err = gen8_get_firmware_information(FULL_MESSAGE); // Disable Silent Mode
+        else // Gen5/6/7 Touch
+            err = get_firmware_information(FULL_MESSAGE); // Disable Silent Mode
+        if(err != TP_SUCCESS)
+        {
+            ERROR_PRINTF("Fail to Get FW Info!\r\n");
+            goto EXIT2;
         }
 
         // Verify Calibration with Counter
