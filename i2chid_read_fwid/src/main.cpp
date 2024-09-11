@@ -27,12 +27,12 @@
 
 // SW Version
 #ifndef ELAN_TOOL_SW_VERSION
-#define	ELAN_TOOL_SW_VERSION 	"1.1"
+#define	ELAN_TOOL_SW_VERSION 	"1.2"
 #endif //ELAN_TOOL_SW_VERSION
 
 // SW Release Date
 #ifndef ELAN_TOOL_SW_RELEASE_DATE
-#define ELAN_TOOL_SW_RELEASE_DATE	"2022-10-28"
+#define ELAN_TOOL_SW_RELEASE_DATE	"2024-09-09"
 #endif //ELAN_TOOL_SW_RELEASE_DATE
 
 // Error Retry Count
@@ -92,7 +92,7 @@ const struct option long_options[] =
 {
     { "pid",				1, NULL, 'p'},
     { "pid_hex",			1, NULL, 'P'},
-    { "mapping_file_path",	1, NULL, 'f'},
+    { "mapping_file_path",              1, NULL, 'f'},
     { "system",				1, NULL, 's'},
     { "dev_info",			0, NULL, 'i'},
     { "quiet",				0, NULL, 'q'},
@@ -358,6 +358,7 @@ int get_system_info(struct hidraw_devinfo *p_hid_dev_info, size_t hid_dev_info_s
             goto GET_SYSTEM_INFO_EXIT;
         }
     }
+   
     edid_info_found = true;
     DEBUG_PRINTF("%s: EDID Info. Found? %s.\r\n", __func__, (edid_info_found) ? "true" : "false");
     *p_edid_info_found = edid_info_found;

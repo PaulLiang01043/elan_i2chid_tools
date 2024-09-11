@@ -141,12 +141,35 @@ int get_fwid_from_edid(struct lcm_dev_info *p_dev_info, size_t dev_info_size, un
         index = 0;
     char target_panel_info[PANEL_INFO_LENGTH_MAX] = {0};
 
+    /* [Note] 2024/09/09
+     * We can not read EDID from Fpdisplay MIPI-DSI lmfbx101117480 on Dynabook Destiny.
+     * Null EDID information (Manufacturer & Product Code) leads to an "Invalid Parameter" error, which can not be well-handled.
+     * Thus we set a work-around to return a "Data Not Found" error, which makes application use information EDID.
     // Check if Parameter Invalid
     if ((p_dev_info == NULL) || (dev_info_size == 0) || (manufacturer_code == 0) || (product_code == 0) || (system == UNKNOWN) || (p_fwid == NULL))
     {
         ERROR_PRINTF("%s: Invalid Parameter! (p_dev_info=0x%p, dev_info_size=%zd, manufacturer_code=0x%x, product_code=0x%x, system=%d, p_fwid=0x%p)\r\n", \
                      __func__, p_dev_info, dev_info_size, manufacturer_code, product_code, system, p_fwid);
         err = TP_ERR_INVALID_PARAM;
+        goto GET_FWID_FROM_EDID_EXIT;
+    }
+    */
+    
+    // Check if Parameter Invalid
+    if ((p_dev_info == NULL) || (dev_info_size == 0) || (system == UNKNOWN) || (p_fwid == NULL))
+    {
+        ERROR_PRINTF("%s: Invalid Parameter! (p_dev_info=0x%p, dev_info_size=%zd, system=%d, p_fwid=0x%p)\r\n", \
+                     __func__, p_dev_info, dev_info_size, system, p_fwid);
+        err = TP_ERR_INVALID_PARAM;
+        goto GET_FWID_FROM_EDID_EXIT;
+    }
+    
+    // Check if Invalid EDID Information (Manufacturer Code / Product Code)
+    if ((manufacturer_code == 0) || (product_code == 0))
+    {
+        DEBUG_PRINTF("%s: Invalid EDID Information! (manufacturer_code=0x%x, product_code=0x%x)\r\n", \
+                     __func__, manufacturer_code, product_code);
+        err = TP_ERR_DATA_NOT_FOUND;
         goto GET_FWID_FROM_EDID_EXIT;
     }
 
