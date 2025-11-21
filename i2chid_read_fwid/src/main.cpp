@@ -25,14 +25,19 @@
  * Definitions
  ******************************************/
 
+/* i2chid_read_fwid revision & build date.
+ * v1.3, 2025-11-21
+ * 1) Expand device mapping table from 100 to 1024 entries to support more devices.
+ */
+
 // SW Version
 #ifndef ELAN_TOOL_SW_VERSION
-#define	ELAN_TOOL_SW_VERSION 	"1.2"
+#define	ELAN_TOOL_SW_VERSION 	"1.3"
 #endif //ELAN_TOOL_SW_VERSION
 
 // SW Release Date
 #ifndef ELAN_TOOL_SW_RELEASE_DATE
-#define ELAN_TOOL_SW_RELEASE_DATE	"2024-09-09"
+#define ELAN_TOOL_SW_RELEASE_DATE	"2025-11-21"
 #endif //ELAN_TOOL_SW_RELEASE_DATE
 
 // Error Retry Count
@@ -816,7 +821,7 @@ int main(int argc, char **argv)
                    edid_manufacturer_code = 0,
                    edid_product_code = 0;
     struct hidraw_devinfo hid_dev_info[DEV_INFO_SET_MAX];
-    struct lcm_dev_info   lcm_panel_info[DEV_INFO_SET_MAX];
+    struct lcm_dev_info   lcm_panel_info[LCM_DEV_INFO_SET_MAX];
 
     // Initialize Data Variables
     memset(hid_dev_info, 0, sizeof(hid_dev_info));

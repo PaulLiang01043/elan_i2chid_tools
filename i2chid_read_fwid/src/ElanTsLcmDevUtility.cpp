@@ -122,7 +122,7 @@ int show_lcm_dev_info(struct lcm_dev_info *p_dev_info, size_t dev_info_size)
     printf("--------------------------------------\r\n");
     printf("LCM Devices:\r\n");
 
-    for(index = 0; index < DEV_INFO_SET_MAX; index++)
+    for(index = 0; index < LCM_DEV_INFO_SET_MAX; index++)
     {
         // Check for Device Data Valid
         if(strcmp(p_dev_info[index].panel_info, "") == 0)
@@ -178,7 +178,7 @@ int get_fwid_from_edid(struct lcm_dev_info *p_dev_info, size_t dev_info_size, un
     DEBUG_PRINTF("%s: target_panel_info: \"%s\".\r\n", __func__, target_panel_info);
 
     // Look for Device Info. with Matched Panel Info.
-    for(index = 0; index < DEV_INFO_SET_MAX; index++)
+    for(index = 0; index < LCM_DEV_INFO_SET_MAX; index++)
     {
         // Check for Device Data Valid
         if(strcmp(p_dev_info[index].panel_info, "") == 0)

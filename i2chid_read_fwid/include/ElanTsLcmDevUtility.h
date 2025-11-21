@@ -23,9 +23,9 @@
  ******************************************/
 
 // Device Information Set
-#ifndef DEV_INFO_SET_MAX
-#define DEV_INFO_SET_MAX		100
-#endif //DEV_INFO_SET_MAX
+#ifndef LCM_DEV_INFO_SET_MAX
+#define LCM_DEV_INFO_SET_MAX		1024
+#endif //LCM_DEV_INFO_SET_MAX
 
 // File Length
 #ifndef FILE_NAME_LENGTH_MAX
