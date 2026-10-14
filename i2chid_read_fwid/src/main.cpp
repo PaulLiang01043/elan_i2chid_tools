@@ -28,16 +28,23 @@
 /* i2chid_read_fwid revision & build date.
  * v1.3, 2025-11-21
  * 1) Expand device mapping table from 100 to 1024 entries to support more devices.
+ * v1.4, 2026-10-12
+ * 1) Support Recovery Hello identification for old Gen5 ICs (5312B).
+ * 2) Skip unsupported Information FWID reads for old Gen5 Recovery
+ *    Boot Codes (5312B / 5312C) and display N/A.
+ * 3) Allow EDID mapping lookup when Information FWID is unavailable;
+ *    use Information FWID as a fallback only when valid.
+ * 4) Fix the EDID availability flag and validate Recovery Hello format.
  */
 
 // SW Version
 #ifndef ELAN_TOOL_SW_VERSION
-#define	ELAN_TOOL_SW_VERSION 	"1.3"
+#define	ELAN_TOOL_SW_VERSION 	"1.4"
 #endif //ELAN_TOOL_SW_VERSION
 
 // SW Release Date
 #ifndef ELAN_TOOL_SW_RELEASE_DATE
-#define ELAN_TOOL_SW_RELEASE_DATE	"2025-11-21"
+#define ELAN_TOOL_SW_RELEASE_DATE	"2026-10-12"
 #endif //ELAN_TOOL_SW_RELEASE_DATE
 
 // Error Retry Count
@@ -48,6 +55,15 @@
 /*******************************************
  * Data Structure Declaration
  ******************************************/
+
+// Information FWID read status
+enum info_fwid_status_t
+{
+    INFO_FWID_NOT_READ,
+    INFO_FWID_VALID,
+    INFO_FWID_UNSUPPORTED,
+    INFO_FWID_ERROR
+};
 
 /*******************************************
  * Global Variables Declaration
@@ -110,7 +126,8 @@ const struct option long_options[] =
  ******************************************/
 
 // Information FWID
-int show_info_fwid(unsigned short info_fwid);
+int show_info_fwid(unsigned short info_fwid,
+                   info_fwid_status_t info_fwid_status);
 
 // FWID
 int show_fwid(system_type system, unsigned short fwid, bool silent_mode);
@@ -124,7 +141,7 @@ int get_system_info(struct hidraw_devinfo *p_hid_dev_info, size_t hid_dev_info_s
 int show_system_info(struct hidraw_devinfo *p_hid_dev_info, size_t hid_dev_info_size, \
                      bool edid_info_found, unsigned short edid_manufacturer_code, unsigned short edid_product_code, \
                      bool lookup_fwid, struct lcm_dev_info *p_lcm_dev_info, size_t lcm_dev_info_size, \
-                     unsigned short info_fwid);
+                     unsigned short info_fwid, info_fwid_status_t info_fwid_status);
 
 // Help
 void show_help_information(void);
@@ -251,13 +268,39 @@ int write_vendor_cmd(unsigned char *cmd_buf, int len, int timeout_ms)
  * Function Implementation
  ******************************************/
 
-int show_info_fwid(unsigned short info_fwid)
+int show_info_fwid(unsigned short info_fwid,
+                   info_fwid_status_t info_fwid_status)
 {
     int err = TP_SUCCESS;
 
     printf("--------------------------------------\r\n");
     printf("Touch Information:\r\n");
-    printf("Information FWID: %04x.\r\n", info_fwid);
+
+    switch (info_fwid_status)
+    {
+        case INFO_FWID_VALID:
+            printf("Information FWID: %04x.\r\n", info_fwid);
+            break;
+
+        case INFO_FWID_UNSUPPORTED:
+            printf("Information FWID: N/A (unsupported by this recovery boot code).\r\n");
+            break;
+
+        case INFO_FWID_NOT_READ:
+            printf("Information FWID: N/A (not read).\r\n");
+            err = TP_ERR_DATA_NOT_FOUND;
+            break;
+
+        case INFO_FWID_ERROR:
+            printf("Information FWID: N/A (read failed).\r\n");
+            err = TP_ERR_IO_ERROR;
+            break;
+
+        default:
+            ERROR_PRINTF("%s: Invalid Information FWID status: %d.\r\n", __func__, (int)info_fwid_status);
+            err = TP_ERR_INVALID_PARAM;
+            break;
+    }
 
     return err;
 }
@@ -363,8 +406,11 @@ int get_system_info(struct hidraw_devinfo *p_hid_dev_info, size_t hid_dev_info_s
             goto GET_SYSTEM_INFO_EXIT;
         }
     }
-   
-    edid_info_found = true;
+    else
+    {
+        edid_info_found = true;
+    }
+
     DEBUG_PRINTF("%s: EDID Info. Found? %s.\r\n", __func__, (edid_info_found) ? "true" : "false");
     *p_edid_info_found = edid_info_found;
 
@@ -404,7 +450,7 @@ GET_SYSTEM_INFO_EXIT:
 int show_system_info(struct hidraw_devinfo *p_hid_dev_info, size_t hid_dev_info_size, \
                      bool edid_info_found, unsigned short edid_manufacturer_code, unsigned short edid_product_code, \
                      bool lookup_fwid, struct lcm_dev_info *p_lcm_dev_info, size_t lcm_dev_info_size, \
-                     unsigned short info_fwid)
+                     unsigned short info_fwid, info_fwid_status_t info_fwid_status)
 {
     int err = TP_SUCCESS;
 
@@ -456,7 +502,12 @@ int show_system_info(struct hidraw_devinfo *p_hid_dev_info, size_t hid_dev_info_
     }
 
     // Show Information FWID
-    show_info_fwid(info_fwid);
+    err = show_info_fwid(info_fwid, info_fwid_status);
+    if(err != TP_SUCCESS)
+    {
+        ERROR_PRINTF("%s: Fail to Show Information FWID! err=0x%x.\r\n", __func__, err);
+        goto SHOW_SYSTEM_INFO_EXIT;
+    }
 
     // Success
     err = TP_SUCCESS;
@@ -808,10 +859,13 @@ PROCESS_PARAM_EXIT:
 
 int main(int argc, char **argv)
 {
-    int err = TP_SUCCESS;
+    int err = TP_SUCCESS,
+        info_fwid_error = TP_SUCCESS;
+    info_fwid_status_t info_fwid_status = INFO_FWID_NOT_READ;
     bool recovery = false,		// True if Recovery Mode
          gen8_touch = false,	// True if Gen8 Touch
-         edid_info_found = true;
+         edid_info_found = true,
+         info_fwid_read_supported = true;
     unsigned char hello_packet = 0;
     unsigned short fw_bc_version = 0,
                    bc_bc_version = 0,
@@ -866,7 +920,7 @@ int main(int argc, char **argv)
         ERROR_PRINTF("Fail to Get Hello Packet (& BC Version)! err=0x%x.\r\n", err);
         goto EXIT2;
     }
-    DEBUG_PRINTF("Hello Packet: 0x%02x, Recovery Mode BC Version: 0x%04x.\r\n", hello_packet, bc_bc_version);
+    DEBUG_PRINTF("Hello Packet: 0x%02x, Hello Response trailing bytes: 0x%04x.\r\n", hello_packet, bc_bc_version);
 
     // Identify HW Series & Touch State
     switch (hello_packet)
@@ -895,6 +949,12 @@ int main(int argc, char **argv)
             recovery = false;		// Normal Mode
             break;
 
+        case ELAN_I2CHID_RECOVERY_MODE_HELLO_PACKET_OLD_GEN5:
+            gen8_touch = false; // Old Gen5
+            recovery = true;
+            info_fwid_read_supported = false;
+            break;
+
         case ELAN_I2CHID_RECOVERY_MODE_HELLO_PACKET:
             // Special Case: First BC of EM32F901 / EM32F902
             if((HIGH_BYTE(bc_bc_version) == BC_VER_H_BYTE_FOR_EM32F901_I2CHID) /* EM32F901 */ ||
@@ -903,6 +963,9 @@ int main(int argc, char **argv)
             else
                 gen8_touch = false;	// Gen5/6/7 Touch
             recovery = true;		// Recovery Mode
+
+            if (bc_bc_version == 0xA6A6) // Recovery Mode with old Boot Code for Gen5 ICs (5312C).
+                info_fwid_read_supported = false;
             break;
 
         case ELAN_GEN8_I2CHID_RECOVERY_MODE_HELLO_PACKET:
@@ -935,14 +998,26 @@ int main(int argc, char **argv)
     }
 
     /* Read Information FWID */
-    if(gen8_touch) // Gen8 Touch
-        err = gen8_read_info_fwid(&info_fwid, recovery);
-    else // Gen5/6/7 Touch
-        err = read_info_fwid(&info_fwid, recovery);
-    if (err != TP_SUCCESS)
+    if(info_fwid_read_supported == false)
     {
-        ERROR_PRINTF("Fail to Read Information FWID! err=0x%x.\r\n", err);
-        goto EXIT2;
+        info_fwid_status = INFO_FWID_UNSUPPORTED;
+    }
+    else
+    {
+        if(gen8_touch) // Gen8 Touch
+            err = gen8_read_info_fwid(&info_fwid, recovery);
+        else // Gen5/6/7 Touch
+            err = read_info_fwid(&info_fwid, recovery);
+
+        if(err != TP_SUCCESS)
+        {
+            info_fwid_status = INFO_FWID_ERROR;
+            info_fwid_error = err;
+            ERROR_PRINTF("Fail to Read Information FWID! err=0x%x.\r\n", err);
+            goto EXIT2;
+        }
+
+        info_fwid_status = INFO_FWID_VALID;
     }
 
     /* Show System Information */
@@ -951,7 +1026,7 @@ int main(int argc, char **argv)
         err = show_system_info(hid_dev_info, sizeof(hid_dev_info), \
                                edid_info_found, edid_manufacturer_code, edid_product_code, \
                                g_lookup_fwid, lcm_panel_info, sizeof(lcm_panel_info), \
-                               info_fwid);
+                               info_fwid, info_fwid_status);
         if (err != TP_SUCCESS)
         {
             ERROR_PRINTF("%s: Fail to Show System Info.! err=0x%x.\r\n", __func__, err);
@@ -986,8 +1061,17 @@ int main(int argc, char **argv)
                 if (err == TP_ERR_DATA_NOT_FOUND) // Can not find FWID from Mapping Table
                 {
                     // Use Information FWID Instead
-                    DEBUG_PRINTF("fwid_from_edid Not Found, use info_fwid (%x) instead.\r\n", info_fwid);
-                    fwid = info_fwid;
+                    if(info_fwid_status == INFO_FWID_VALID)
+                    {
+                        DEBUG_PRINTF("fwid_from_edid Not Found, use info_fwid (%x) instead.\r\n", info_fwid);
+                        fwid = info_fwid;
+                    }
+                    else
+                    {
+                        ERROR_PRINTF("No valid FWID mapping or Information FWID available.\r\n");
+                        err = TP_ERR_DATA_NOT_FOUND;
+                        goto EXIT2;
+                    }
                 }
                 else // if ((err != TP_SUCCESS) && (err != TP_ERR_DATA_NOT_FOUND))
                 {
@@ -999,8 +1083,17 @@ int main(int argc, char **argv)
         else // EDID Info. Not Found
         {
             // Use Information FWID Instead
-            DEBUG_PRINTF("EDID read failed, use info_fwid (%x) instead.\r\n", info_fwid);
-            fwid = info_fwid;
+            if(info_fwid_status == INFO_FWID_VALID)
+            {
+                DEBUG_PRINTF("EDID read failed, use info_fwid (%x) instead.\r\n", info_fwid);
+                fwid = info_fwid;
+            }
+            else
+            {
+                ERROR_PRINTF("No valid FWID mapping or Information FWID available.\r\n");
+                err = TP_ERR_DATA_NOT_FOUND;
+                goto EXIT2;
+            }
         }
 
         /* Show FWID */
