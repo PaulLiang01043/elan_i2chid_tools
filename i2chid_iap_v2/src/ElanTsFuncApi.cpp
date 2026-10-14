@@ -17,6 +17,7 @@
 #include "ElanTsI2chidUtility.h"
 #include "ElanTsFwFileIoUtility.h"
 #include "ElanTsFuncApi.h"
+#include "ElanGen8TsI2chidHwParameters.h"
 
 /***************************************************
  * Global Variable Declaration
@@ -273,15 +274,26 @@ int get_hello_packet_bc_version(unsigned char *p_hello_packet, unsigned short *p
         ERROR_PRINTF("%s: Fail to Receive Hello Packet! err=0x%x.\r\n", __func__, err);
         goto GET_HELLO_PACKET_BC_VERSION_EXIT;
     }
+    // Recovery Hello Responses must have identical first two bytes.
+    if ((hello_packet[0] == ELAN_I2CHID_RECOVERY_MODE_HELLO_PACKET_OLD_GEN5 ||
+         hello_packet[0] == ELAN_I2CHID_RECOVERY_MODE_HELLO_PACKET ||
+         hello_packet[0] == ELAN_GEN8_I2CHID_RECOVERY_MODE_HELLO_PACKET) &&
+        hello_packet[0] != hello_packet[1])
+    {
+        ERROR_PRINTF("Invalid Recovery Hello Response: %02x %02x.\r\n", hello_packet[0], hello_packet[1]);
+        err = TP_ERR_DATA_PATTERN;
+        goto GET_HELLO_PACKET_BC_VERSION_EXIT;
+    }
+
     DEBUG_PRINTF("vendor_cmd_data: %02x %02x %02x %02x.\r\n", hello_packet[0], hello_packet[1], hello_packet[2], hello_packet[3]);
 
     // Hello Packet
     DEBUG_PRINTF("Hello Packet: %02x.\r\n", hello_packet[0]);
     *p_hello_packet = hello_packet[0];
 
-    // BC Version
+    // Hello Response trailing bytes
     bc_version = (hello_packet[2] << 8) | hello_packet[3];
-    DEBUG_PRINTF("BC Version: %04x.\r\n", bc_version);
+    DEBUG_PRINTF("Hello Response trailing bytes: %04x.\r\n", bc_version);
     *p_bc_version = bc_version;
 
     // Success

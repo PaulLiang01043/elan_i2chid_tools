@@ -24,14 +24,21 @@
  * Definitions
  ******************************************/
 
+/* i2chid_iap_v2 revision & build date.
+ * v4.3, 2026-10-12
+ * 1) Support Recovery Hello identification for old Gen5 ICs (5312B).
+ * 2) Validate that the first two bytes of Recovery Hello Responses match.
+ * 3) Clarify debug output for Hello Response trailing bytes.
+ */
+
 // SW Version
 #ifndef ELAN_TOOL_SW_VERSION
-#define	ELAN_TOOL_SW_VERSION 	"4.2"
+#define	ELAN_TOOL_SW_VERSION 	"4.3"
 #endif //ELAN_TOOL_SW_VERSION
 
 // SW Release Date
 #ifndef ELAN_TOOL_SW_RELEASE_DATE
-#define ELAN_TOOL_SW_RELEASE_DATE	"2024-07-22"
+#define ELAN_TOOL_SW_RELEASE_DATE	"2026-10-12"
 #endif //ELAN_TOOL_SW_RELEASE_DATE
 
 #ifdef __SUPPORT_RESULT_LOG__
@@ -763,7 +770,7 @@ int main(int argc, char **argv)
         ERROR_PRINTF("Fail to Get Hello Packet (& BC Version)! err=0x%x.\r\n", err);
         goto EXIT2;
     }
-    DEBUG_PRINTF("Hello Packet: 0x%02x, Recovery Mode BC Version: 0x%04x.\r\n", hello_packet, bc_bc_version);
+    DEBUG_PRINTF("Hello Packet: 0x%02x, Hello Response trailing bytes: 0x%04x.\r\n", hello_packet, bc_bc_version);
 
     // Identify HW Series & Touch State
     switch (hello_packet)
@@ -790,6 +797,11 @@ int main(int argc, char **argv)
         case ELAN_GEN8_I2CHID_NORMAL_MODE_HELLO_PACKET:
             gen8_touch = true;		// Gen8 Touch
             recovery = false;		// Normal Mode
+            break;
+
+        case ELAN_I2CHID_RECOVERY_MODE_HELLO_PACKET_OLD_GEN5:
+            gen8_touch = false; // Old Gen5
+            recovery = true;
             break;
 
         case ELAN_I2CHID_RECOVERY_MODE_HELLO_PACKET:
